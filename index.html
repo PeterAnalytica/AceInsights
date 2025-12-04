@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ace Insights – Narrative Layer for AcePi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #020617;
+      color: #e5e7eb;
+    }
+    header {
+      padding: 16px 24px;
+      background: #020617;
+      border-bottom: 1px solid #1f2937;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+    }
+    header span {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      grid-gap: 16px;
+    }
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+    .card {
+      background: #020617;
+      border-radius: 14px;
+      border: 1px solid #1f2937;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    .card h2 {
+      margin-top: 0;
+      font-size: 16px;
+    }
+    .card h3 {
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+      opacity: 0.9;
+    }
+    input[type="file"] {
+      font-size: 12px;
+      color: #e5e7eb;
+    }
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 8px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      background: #22c55e;
+      color: #022c22;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: #0f172a;
+      color: #e5e7eb;
+      border: 1px solid #374151;
+    }
+    .status {
+      font-size: 12px;
+      margin-top: 8px;
+      min-height: 18px;
+      opacity: 0.9;
+    }
+    pre {
+      background: #020617;
+      border-radius: 8px;
+      border: 1px solid #111827;
+      padding: 10px;
+      font-size: 11px;
+      max-height: 260px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .muted {
+      opacity: 0.8;
+      font-size: 12px;
+    }
+    textarea {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+      padding: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      box-sizing: border-box;
+      min-height: 120px;
+      resize: vertical;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Ace Insights</h1>
+      <span>Narrative & content layer on top of AcePi JSON outputs</span>
+    </div>
+    <div style="text-align:right;font-size:11px;opacity:0.8;">
+      Ace Insights | Strategizing the Ledger of the New Economy<br />
+      Source: AcePi + ACA Control Room
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>1. Load AcePi JSON</h2>
+      <p class="muted">
+        Upload the JSON output file from your AcePi Lite app
+        (<code>acepi-output-*.json</code>). Ace Insights will derive
+        a management summary and draft content for X/Twitter,
+        Telegram and Facebook.
+      </p>
+
+      <label for="jsonFile">AcePi JSON output</label>
+      <input id="jsonFile" type="file" accept=".json,application/json" />
+
+      <div style="margin-top:10px;">
+        <button id="loadBtn">📂 Load & Generate Drafts</button>
+        <button id="clearBtn" class="btn-secondary">Clear</button>
+      </div>
+
+      <div class="status" id="status"></div>
+
+      <h3>Quick Snapshot</h3>
+      <div id="snapshot" class="muted">(no data yet)</div>
+
+      <h3>Raw Preview (first part)</h3>
+      <pre id="rawPreview">(no file loaded)</pre>
+    </section>
+
+    <section class="card">
+      <h2>2. Auto-Generated Drafts</h2>
+
+      <h3>Executive Narrative (for articles / LinkedIn / blog)</h3>
+      <textarea id="execDraft" placeholder="Load AcePi JSON to generate..."></textarea>
+
+      <h3>X / Twitter Thread Draft (5-part)</h3>
+      <textarea id="threadDraft" placeholder="Load AcePi JSON to generate..."></textarea>
+
+      <h3>Telegram / Facebook Summary</h3>
+      <textarea id="socialDraft" placeholder="Load AcePi JSON to generate..."></textarea>
+    </section>
+  </main>
+
+  <script>
+    const jsonFileInput = document.getElementById("jsonFile");
+    const loadBtn = document.getElementById("loadBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const statusEl = document.getElementById("status");
+    const snapshotEl = document.getElementById("snapshot");
+    const rawPreviewEl = document.getElementById("rawPreview");
+    const execDraftEl = document.getElementById("execDraft");
+    const threadDraftEl = document.getElementById("threadDraft");
+    const socialDraftEl = document.getElementById("socialDraft");
+
+    let lastData = null;
+
+    clearBtn.addEventListener("click", () => {
+      jsonFileInput.value = "";
+      statusEl.textContent = "";
+      snapshotEl.textContent = "(no data yet)";
+      rawPreviewEl.textContent = "(no file loaded)";
+      execDraftEl.value = "";
+      threadDraftEl.value = "";
+      socialDraftEl.value = "";
+      lastData = null;
+    });
+
+    loadBtn.addEventListener("click", () => {
+      const file = jsonFileInput.files && jsonFileInput.files[0];
+      if (!file) {
+        statusEl.textContent = "Please choose an AcePi JSON file first.";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const text = reader.result;
+          let parsed;
+          try {
+            parsed = JSON.parse(text);
+          } catch (e) {
+            statusEl.textContent = "File is not valid JSON.";
+            return;
+          }
+          lastData = parsed;
+          rawPreviewEl.textContent = text.slice(0, 4000);
+
+          const snap = buildSnapshot(parsed);
+          snapshotEl.innerHTML = snap.html;
+          execDraftEl.value = buildExecDraft(parsed, snap.meta);
+          threadDraftEl.value = buildThreadDraft(parsed, snap.meta);
+          socialDraftEl.value = buildSocialDraft(parsed, snap.meta);
+
+          statusEl.textContent = "Draft narratives generated from AcePi JSON.";
+        } catch (err) {
+          statusEl.textContent = "Error reading file: " + err.message;
+        }
+      };
+      reader.onerror = () => {
+        statusEl.textContent = "Failed to read file.";
+      };
+      reader.readAsText(file);
+    });
+
+    function buildSnapshot(data) {
+      const summary = data.summary || {};
+      const entries = Array.isArray(data.entries) ? data.entries : [];
+      const bp = data.business_profile || {};
+
+      const totalTx = summary.total_transactions ?? entries.length ?? 0;
+      const totalIn = summary.total_inflows ?? 0;
+      const totalOut = summary.total_outflows ?? 0;
+      const net = +(totalIn - totalOut).toFixed(2);
+
+      // Aggregations for meta
+      const perCountry = {};
+      const perFx = {};
+      const perChain = {};
+      const perChannel = {};
+
+      entries.forEach(e => {
+        const amt = Number(
+          e.ledger_entry && e.ledger_entry.debit && e.ledger_entry.debit.amount
+            ? e.ledger_entry.debit.amount
+            : 0
+        );
+        const dir = e.direction || null;
+        const inflowAmt = dir === "in" ? amt : 0;
+        const outflowAmt = dir === "out" ? amt : 0;
+
+        const country = e.tax_country || "Unknown";
+        if (!perCountry[country]) {
+          perCountry[country] = { count: 0, inflows: 0, outflows: 0, vat: 0, wht: 0 };
+        }
+        const c = perCountry[country];
+        c.count++;
+        c.inflows += inflowAmt;
+        c.outflows += outflowAmt;
+        if (e.tax_analysis) {
+          c.vat += Number(e.tax_analysis.vat_amount || 0);
+          c.wht += Number(e.tax_analysis.withholding_tax_amount || 0);
+        }
+
+        const fx = e.fx || null;
+        if (fx && fx.fx_currency) {
+          const cur = fx.fx_currency.toUpperCase();
+          if (!perFx[cur]) {
+            perFx[cur] = { count: 0, fx_amount: 0, recorded_base: 0 };
+          }
+          const f = perFx[cur];
+          f.count++;
+          if (fx.fx_amount != null) f.fx_amount += Number(fx.fx_amount) || 0;
+          if (fx.recorded_base_amount != null) f.recorded_base += Number(fx.recorded_base_amount) || 0;
+        }
+
+        const chain = (e.chain || "OFFCHAIN").toUpperCase();
+        if (!perChain[chain]) perChain[chain] = { count: 0, volume: 0 };
+        perChain[chain].count++;
+        perChain[chain].volume += amt;
+
+        const channel = (e.payment_channel || "unknown").toLowerCase();
+        if (!perChannel[channel]) perChannel[channel] = { count: 0, volume: 0 };
+        perChannel[channel].count++;
+        perChannel[channel].volume += amt;
+      });
+
+      function topBy(obj, field) {
+        const keys = Object.keys(obj);
+        if (!keys.length) return null;
+        return keys
+          .map(k => ({ key: k, ...obj[k] }))
+          .sort((a, b) => (b[field] || 0) - (a[field] || 0))[0];
+      }
+
+      const topCountry = topBy(perCountry, "inflows");
+      const topFx = topBy(perFx, "recorded_base");
+      const topChain = topBy(perChain, "volume");
+      const topChannel = topBy(perChannel, "volume");
+
+      const htmlLines = [];
+      if (bp.business_name) htmlLines.push(`<strong>Business:</strong> ${bp.business_name}`);
+      if (bp.industry) htmlLines.push(`<strong>Industry:</strong> ${bp.industry}`);
+      if (bp.country) htmlLines.push(`<strong>Base Country:</strong> ${bp.country}`);
+      if (bp.base_currency) htmlLines.push(`<strong>Base Currency:</strong> ${bp.base_currency}`);
+      htmlLines.push(`<strong>Transactions:</strong> ${totalTx}`);
+      htmlLines.push(`<strong>Total Inflows:</strong> ${totalIn.toFixed(2)}`);
+      htmlLines.push(`<strong>Total Outflows:</strong> ${totalOut.toFixed(2)}`);
+      htmlLines.push(`<strong>Net Position:</strong> ${net.toFixed(2)}`);
+
+      if (topCountry) {
+        htmlLines.push(`<strong>Most Active Tax Country:</strong> ${topCountry.key}`);
+      }
+      if (topFx) {
+        htmlLines.push(`<strong>Primary FX Currency:</strong> ${topFx.key}`);
+      }
+      if (topChain) {
+        htmlLines.push(`<strong>Dominant Chain:</strong> ${topChain.key}`);
+      }
+      if (topChannel) {
+        htmlLines.push(`<strong>Key Channel:</strong> ${topChannel.key}`);
+      }
+
+      return {
+        html: htmlLines.join("<br />"),
+        meta: {
+          totalTx,
+          totalIn,
+          totalOut,
+          net,
+          perCountry,
+          perFx,
+          perChain,
+          perChannel,
+          topCountry,
+          topFx,
+          topChain,
+          topChannel,
+          bp
+        }
+      };
+    }
+
+    function buildExecDraft(data, meta) {
+      const m = meta || {};
+      const bp = m.bp || {};
+      const businessName = bp.business_name || "the business";
+      const industry = bp.industry || "the operation";
+
+      const countryCount = Object.keys(m.perCountry || {}).length || 1;
+      const chainCount = Object.keys(m.perChain || {}).length || 1;
+      const channelCount = Object.keys(m.perChannel || {}).length || 1;
+
+      return [
+`Executive Summary – ${businessName}`,
+``,
+`In this analysis window, ${businessName} processed ${m.totalTx} transactions across approximately ${countryCount} tax jurisdiction(s).`,
+`Gross inflows amounted to ${m.totalIn.toFixed(2)} in base currency, while total outflows stood at ${m.totalOut.toFixed(2)}, leaving a net position of ${m.net.toFixed(2)}.`,
+``,
+m.topCountry
+  ? `The most active tax country was ${m.topCountry.key}, reflecting both revenue activity and compliance exposure in that environment.`
+  : `Transaction activity is currently concentrated in a single tax environment, with limited cross-border exposure recorded in this dataset.`,
+m.topFx
+  ? `FX-wise, ${m.topFx.key} emerged as the primary foreign currency, with aggregated volume of approximately ${m.topFx.recorded_base.toFixed(2)} in base terms.`
+  : `No material FX-tagged transactions were captured in this run; flows are predominantly local-currency based.`,
+m.topChain
+  ? `On the infrastructure side, ${m.topChain.key} is currently the dominant transaction rail in the ledger, indicating growing relevance of that chain in the ${industry.toLowerCase()} stack.`
+  : `On-chain rails did not dominate volumes in this dataset; activity remains mainly off-chain (traditional banking and payment platforms).`,
+m.topChannel
+  ? `From a channel perspective, ${m.topChannel.key} accounts for the largest settlement volume, pointing to a key partner or payment route that should be monitored for reliability, fees and risk.`
+  : `Payment channels appear fragmented, with no single route yet emerging as the dominant settlement path.`,
+``,
+`Tax & Compliance Highlights`,
+`---------------------------`,
+...Object.keys(m.perCountry || {}).sort().map(ct => {
+  const c = m.perCountry[ct];
+  return `• ${ct}: VAT = ${c.vat.toFixed(2)}, WHT = ${c.wht.toFixed(2)}, tx = ${c.count}, net = ${(c.inflows - c.outflows).toFixed(2)}.`;
+}),
+Object.keys(m.perCountry || {}).length === 0
+  ? [`• No tax-country breakdown was available from this dataset.`]
+  : [],
+``,
+`FX & Risk Observations`,
+`----------------------`,
+Object.keys(m.perFx || {}).length
+  ? Object.keys(m.perFx).sort().map(cur => {
+      const f = m.perFx[cur];
+      return `• ${cur}: FX amount = ${f.fx_amount.toFixed(2)}, base volume (recorded) = ${f.recorded_base.toFixed(2)}.`;
+    })
+  : [`• No FX-tagged transactions were observed; current risk is primarily in local currency movements.`],
+``,
+`Operationally, this data gives management a clearer view of where cash is entering and leaving the system, which chains and channels are becoming critical, and how tax and FX exposures are evolving.`,
+`This narrative can be refined further with qualitative context (seasonality, campaigns, regulatory changes and strategic moves).`
+      ].flat().join("\n");
+    }
+
+    function buildThreadDraft(data, meta) {
+      const m = meta || {};
+      const bp = m.bp || {};
+      const businessName = bp.business_name || "this business";
+      const baseCur = bp.base_currency || "base currency";
+
+      const topCountry = m.topCountry ? m.topCountry.key : "one core market";
+      const topFx = m.topFx ? m.topFx.key : null;
+      const topChain = m.topChain ? m.topChain.key : null;
+
+      const fxLine = topFx
+        ? `FX tells its own story: ${topFx} is the main foreign currency flowing through the books.`
+        : `This dataset is largely local-currency driven, with minimal FX tagged so far.`;
+
+      const chainLine = topChain
+        ? `On the infrastructure side, ${topChain} is quietly becoming a key rail for how value actually moves.`
+        : `Right now, most flows are still off-chain, but the rails are ready for a more digital, programmable future.`;
+
+      return [
+`Tweet 1 – Hook`,
+`Numbers don’t just balance books — they narrate the health of a business.`,
+`Today’s ledger for ${businessName} tells a story of cash, tax, FX and on-chain activity in motion.`,
+``,
+`Tweet 2 – Snapshot`,
+`In this window, we processed ${m.totalTx} transactions, with total inflows of ${m.totalIn.toFixed(2)} and outflows of ${m.totalOut.toFixed(2)} in ${baseCur}.`,
+`Net position: ${m.net.toFixed(2)}.`,
+`The most active tax environment? ${topCountry}.`,
+``,
+`Tweet 3 – Tax & Compliance`,
+`Behind every transaction is a compliance footprint.`,
+`VAT and WHT are building up across jurisdictions, and each jurisdiction in this ledger is a signal of regulatory responsibility as much as revenue opportunity.`,
+`Good strategy is not just “how much we made” but “where and under which rules we made it.”`,
+``,
+`Tweet 4 – FX & On-Chain Rails`,
+`${fxLine}`,
+`${chainLine}`,
+`The future accountant doesn’t just see balances – they see rails, flows and exposures in real time.`,
+``,
+`Tweet 5 – Call to Action`,
+`If your ledger isn’t giving you daily intelligence on tax, FX, chains and channels, you’re underusing your own data.`,
+`This is why we’re building AcePi + Ace Insights: turning raw transactions into decisions, stories and strategy.`,
+      ].join("\n");
+    }
+
+    function buildSocialDraft(data, meta) {
+      const m = meta || {};
+      const bp = m.bp || {};
+      const businessName = bp.business_name || "the business";
+
+      return [
+`Ace Insights – Daily Snapshot for ${businessName}`,
+``,
+`Here’s a concise summary of today’s ledger activity:`,
+`• Transactions processed: ${m.totalTx}`,
+`• Total inflows: ${m.totalIn.toFixed(2)}`,
+`• Total outflows: ${m.totalOut.toFixed(2)}`,
+`• Net position: ${m.net.toFixed(2)}`,
+``,
+`Tax & Compliance:`,
+Object.keys(m.perCountry || {}).length
+  ? Object.keys(m.perCountry).sort().map(ct => {
+      const c = m.perCountry[ct];
+      return `• ${ct}: VAT = ${c.vat.toFixed(2)}, WHT = ${c.wht.toFixed(2)}, tx = ${c.count}`;
+    })
+  : [`• No tax-country breakdown available in this set.`],
+``,
+`FX & Channels:`,
+Object.keys(m.perFx || {}).length
+  ? Object.keys(m.perFx).sort().map(cur => {
+      const f = m.perFx[cur];
+      return `• FX ${cur}: amount = ${f.fx_amount.toFixed(2)}, base volume = ${f.recorded_base.toFixed(2)}`;
+    })
+  : [`• No FX-tagged transactions were logged here.`],
+``,
+`On-chain and payment rails are also visible – showing which chains and channels are actually carrying value.`,
+``,
+`You can add:`,
+`• A short spiritual or motivational insight,`,
+`• A leadership quote or scripture,`,
+`• And a link/call-to-action for your audience or clients.`,
+``,
+`This text can be used on Telegram, Facebook or WhatsApp broadcast – simply personalise, add your voice and post.`
+      ].flat().join("\n");
+    }
+  </script>
+</body>
+</html>
