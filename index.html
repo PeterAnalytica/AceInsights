@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Ace Insights – Narrative Layer for AcePi</title>
+  <title>Ace Insights – Narrative Layer for AcePi Suite</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -119,7 +119,7 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       font-size: 12px;
       box-sizing: border-box;
-      min-height: 120px;
+      min-height: 100px;
       resize: vertical;
     }
   </style>
@@ -128,22 +128,22 @@
   <header>
     <div>
       <h1>Ace Insights</h1>
-      <span>Narrative & content layer on top of AcePi JSON outputs</span>
+      <span>Narrative & content layer on top of AcePi Suite JSON outputs</span>
     </div>
     <div style="text-align:right;font-size:11px;opacity:0.8;">
       Ace Insights | Strategizing the Ledger of the New Economy<br />
-      Source: AcePi + ACA Control Room
+      Source: AcePi Suite + ACA Brain
     </div>
   </header>
 
   <main>
     <section class="card">
-      <h2>1. Load AcePi JSON</h2>
+      <h2>1. Load AcePi Suite JSON</h2>
       <p class="muted">
-        Upload the JSON output file from your AcePi Lite app
-        (<code>acepi-output-*.json</code>). Ace Insights will derive
-        a management summary and draft content for X/Twitter,
-        Telegram and Facebook.
+        Upload the JSON output file from your <strong>AcePi Suite</strong> app
+        (<code>acepi-output-*.json</code>). Ace Insights will create:
+        an executive narrative, X/Twitter thread, Telegram/Facebook summary,
+        GM draft, deep-dive draft and a reusable signature block.
       </p>
 
       <label for="jsonFile">AcePi JSON output</label>
@@ -159,14 +159,14 @@
       <h3>Quick Snapshot</h3>
       <div id="snapshot" class="muted">(no data yet)</div>
 
-      <h3>Raw Preview (first part)</h3>
+      <h3>Raw JSON Preview (first part)</h3>
       <pre id="rawPreview">(no file loaded)</pre>
     </section>
 
     <section class="card">
       <h2>2. Auto-Generated Drafts</h2>
 
-      <h3>Executive Narrative (for articles / LinkedIn / blog)</h3>
+      <h3>Executive Narrative (articles / LinkedIn / blog)</h3>
       <textarea id="execDraft" placeholder="Load AcePi JSON to generate..."></textarea>
 
       <h3>X / Twitter Thread Draft (5-part)</h3>
@@ -174,6 +174,15 @@
 
       <h3>Telegram / Facebook Summary</h3>
       <textarea id="socialDraft" placeholder="Load AcePi JSON to generate..."></textarea>
+
+      <h3>GM / Morning Draft</h3>
+      <textarea id="gmDraft" placeholder="Auto GM based on yesterday's ledger..."></textarea>
+
+      <h3>Deep Dive Draft (4–5 PM)</h3>
+      <textarea id="deepDiveDraft" placeholder="Deeper narrative for long-form post..."></textarea>
+
+      <h3>Signature + Hashtags Block</h3>
+      <textarea id="signatureDraft" placeholder="Reusable signature & tags..."></textarea>
     </section>
   </main>
 
@@ -187,6 +196,9 @@
     const execDraftEl = document.getElementById("execDraft");
     const threadDraftEl = document.getElementById("threadDraft");
     const socialDraftEl = document.getElementById("socialDraft");
+    const gmDraftEl = document.getElementById("gmDraft");
+    const deepDiveDraftEl = document.getElementById("deepDiveDraft");
+    const signatureDraftEl = document.getElementById("signatureDraft");
 
     let lastData = null;
 
@@ -198,6 +210,9 @@
       execDraftEl.value = "";
       threadDraftEl.value = "";
       socialDraftEl.value = "";
+      gmDraftEl.value = "";
+      deepDiveDraftEl.value = "";
+      signatureDraftEl.value = "";
       lastData = null;
     });
 
@@ -226,8 +241,11 @@
           execDraftEl.value = buildExecDraft(parsed, snap.meta);
           threadDraftEl.value = buildThreadDraft(parsed, snap.meta);
           socialDraftEl.value = buildSocialDraft(parsed, snap.meta);
+          gmDraftEl.value = buildGmDraft(parsed, snap.meta);
+          deepDiveDraftEl.value = buildDeepDiveDraft(parsed, snap.meta);
+          signatureDraftEl.value = buildSignatureDraft(parsed, snap.meta);
 
-          statusEl.textContent = "Draft narratives generated from AcePi JSON.";
+          statusEl.textContent = "Draft narratives generated from AcePi JSON (exec, thread, social, GM, deep dive, signature).";
         } catch (err) {
           statusEl.textContent = "Error reading file: " + err.message;
         }
@@ -243,12 +261,11 @@
       const entries = Array.isArray(data.entries) ? data.entries : [];
       const bp = data.business_profile || {};
 
-      const totalTx = summary.total_transactions ?? entries.length ?? 0;
+      const totalTx = summary.total_transactions ?? (entries.length || 0);
       const totalIn = summary.total_inflows ?? 0;
       const totalOut = summary.total_outflows ?? 0;
       const net = +(totalIn - totalOut).toFixed(2);
 
-      // Aggregations for meta
       const perCountry = {};
       const perFx = {};
       const perChain = {};
@@ -322,19 +339,10 @@
       htmlLines.push(`<strong>Total Inflows:</strong> ${totalIn.toFixed(2)}`);
       htmlLines.push(`<strong>Total Outflows:</strong> ${totalOut.toFixed(2)}`);
       htmlLines.push(`<strong>Net Position:</strong> ${net.toFixed(2)}`);
-
-      if (topCountry) {
-        htmlLines.push(`<strong>Most Active Tax Country:</strong> ${topCountry.key}`);
-      }
-      if (topFx) {
-        htmlLines.push(`<strong>Primary FX Currency:</strong> ${topFx.key}`);
-      }
-      if (topChain) {
-        htmlLines.push(`<strong>Dominant Chain:</strong> ${topChain.key}`);
-      }
-      if (topChannel) {
-        htmlLines.push(`<strong>Key Channel:</strong> ${topChannel.key}`);
-      }
+      if (topCountry) htmlLines.push(`<strong>Most Active Tax Country:</strong> ${topCountry.key}`);
+      if (topFx) htmlLines.push(`<strong>Primary FX Currency:</strong> ${topFx.key}`);
+      if (topChain) htmlLines.push(`<strong>Dominant Chain:</strong> ${topChain.key}`);
+      if (topChannel) htmlLines.push(`<strong>Key Payment Channel:</strong> ${topChannel.key}`);
 
       return {
         html: htmlLines.join("<br />"),
@@ -363,8 +371,6 @@
       const industry = bp.industry || "the operation";
 
       const countryCount = Object.keys(m.perCountry || {}).length || 1;
-      const chainCount = Object.keys(m.perChain || {}).length || 1;
-      const channelCount = Object.keys(m.perChannel || {}).length || 1;
 
       return [
 `Executive Summary – ${businessName}`,
@@ -387,26 +393,25 @@ m.topChannel
 ``,
 `Tax & Compliance Highlights`,
 `---------------------------`,
-...Object.keys(m.perCountry || {}).sort().map(ct => {
-  const c = m.perCountry[ct];
-  return `• ${ct}: VAT = ${c.vat.toFixed(2)}, WHT = ${c.wht.toFixed(2)}, tx = ${c.count}, net = ${(c.inflows - c.outflows).toFixed(2)}.`;
-}),
-Object.keys(m.perCountry || {}).length === 0
-  ? [`• No tax-country breakdown was available from this dataset.`]
-  : [],
+...(Object.keys(m.perCountry || {}).length
+  ? Object.keys(m.perCountry).sort().map(ct => {
+      const c = m.perCountry[ct];
+      return `• ${ct}: VAT = ${c.vat.toFixed(2)}, WHT = ${c.wht.toFixed(2)}, tx = ${c.count}, net = ${(c.inflows - c.outflows).toFixed(2)}.`;
+    })
+  : [`• No tax-country breakdown was available from this dataset.`]),
 ``,
 `FX & Risk Observations`,
 `----------------------`,
-Object.keys(m.perFx || {}).length
+...(Object.keys(m.perFx || {}).length
   ? Object.keys(m.perFx).sort().map(cur => {
       const f = m.perFx[cur];
       return `• ${cur}: FX amount = ${f.fx_amount.toFixed(2)}, base volume (recorded) = ${f.recorded_base.toFixed(2)}.`;
     })
-  : [`• No FX-tagged transactions were observed; current risk is primarily in local currency movements.`],
+  : [`• No FX-tagged transactions were observed; current risk is primarily in local currency movements.`]),
 ``,
 `Operationally, this data gives management a clearer view of where cash is entering and leaving the system, which chains and channels are becoming critical, and how tax and FX exposures are evolving.`,
 `This narrative can be refined further with qualitative context (seasonality, campaigns, regulatory changes and strategic moves).`
-      ].flat().join("\n");
+      ].join("\n");
     }
 
     function buildThreadDraft(data, meta) {
@@ -449,7 +454,7 @@ Object.keys(m.perFx || {}).length
 ``,
 `Tweet 5 – Call to Action`,
 `If your ledger isn’t giving you daily intelligence on tax, FX, chains and channels, you’re underusing your own data.`,
-`This is why we’re building AcePi + Ace Insights: turning raw transactions into decisions, stories and strategy.`,
+`This is why we’re building AcePi Suite + Ace Insights: turning raw transactions into decisions, stories and strategy.`,
       ].join("\n");
     }
 
@@ -468,20 +473,20 @@ Object.keys(m.perFx || {}).length
 `• Net position: ${m.net.toFixed(2)}`,
 ``,
 `Tax & Compliance:`,
-Object.keys(m.perCountry || {}).length
+...(Object.keys(m.perCountry || {}).length
   ? Object.keys(m.perCountry).sort().map(ct => {
       const c = m.perCountry[ct];
       return `• ${ct}: VAT = ${c.vat.toFixed(2)}, WHT = ${c.wht.toFixed(2)}, tx = ${c.count}`;
     })
-  : [`• No tax-country breakdown available in this set.`],
+  : [`• No tax-country breakdown available in this set.`]),
 ``,
 `FX & Channels:`,
-Object.keys(m.perFx || {}).length
+...(Object.keys(m.perFx || {}).length
   ? Object.keys(m.perFx).sort().map(cur => {
       const f = m.perFx[cur];
       return `• FX ${cur}: amount = ${f.fx_amount.toFixed(2)}, base volume = ${f.recorded_base.toFixed(2)}`;
     })
-  : [`• No FX-tagged transactions were logged here.`],
+  : [`• No FX-tagged transactions were logged here.`]),
 ``,
 `On-chain and payment rails are also visible – showing which chains and channels are actually carrying value.`,
 ``,
@@ -491,7 +496,164 @@ Object.keys(m.perFx || {}).length
 `• And a link/call-to-action for your audience or clients.`,
 ``,
 `This text can be used on Telegram, Facebook or WhatsApp broadcast – simply personalise, add your voice and post.`
-      ].flat().join("\n");
+      ].join("\n");
+    }
+
+    function buildGmDraft(data, meta) {
+      const m = meta || {};
+      const bp = m.bp || {};
+      const businessName = bp.business_name || "the business";
+      const baseCur = bp.base_currency || "base currency";
+      const countryCount = Object.keys(m.perCountry || {}).length || 1;
+      const topCountry = m.topCountry ? m.topCountry.key : "your core market";
+      const topChain = m.topChain ? m.topChain.key : "OFFCHAIN";
+
+      return [
+`GM Family 🌅`,
+``,
+`Another day to steward data, decisions and destiny with wisdom.`,
+`Yesterday, ${businessName} processed ${m.totalTx} transaction(s) across about ${countryCount} tax jurisdiction(s).`,
+`Total inflows were ${m.totalIn.toFixed(2)} and outflows were ${m.totalOut.toFixed(2)} in ${baseCur}, leaving a net position of ${m.net.toFixed(2)}.`,
+``,
+`Key signals:`,
+`• Most active tax environment: ${topCountry}`,
+`• Dominant transaction rail: ${topChain}`,
+m.topFx
+  ? `• Primary FX exposure: ${m.topFx.key}`
+  : `• FX exposure: minimal in this snapshot – flows are mainly local-currency based.`,
+``,
+`Faith & focus nugget (you can customise):`,
+`“Moreover it is required in stewards, that a man be found faithful.” – 1 Corinthians 4:2`,
+`Today, choose to be faithful with your ledger, your gifts, your time and your relationships.`,
+``,
+`Have a productive, insightful and Spirit-guided day.`,
+``,
+`— Peter Bamidele (@PeterAnalytica)`,
+`Founder, Ace Consulting & Analytics (ACA) & Ace Insights`,
+`Strategizing the Ledger of the New Economy — Bridging Traditional Accounting with On-Chain Finance and Beyond.`
+      ].join("\n");
+    }
+
+    function buildDeepDiveDraft(data, meta) {
+      const m = meta || {};
+      const bp = m.bp || {};
+      const businessName = bp.business_name || "this business";
+      const industry = bp.industry || "the operation";
+
+      const hasOnchain = Object.keys(m.perChain || {}).some(k => k !== "OFFCHAIN");
+      const hasFx = Object.keys(m.perFx || {}).length > 0;
+
+      const lines = [];
+
+      lines.push(`Title: Reading the Ledger Like a Story – ${businessName} in Focus`);
+      lines.push("");
+      lines.push("Hook: What if your daily transactions were not just records for audit, but a live script of how value, risk and opportunity are moving through your business?");
+      lines.push("");
+      lines.push(`In today’s deep dive, we look at how ${businessName} is allocating cash, carrying tax obligations and engaging FX and digital rails in its ${industry.toLowerCase()} stack.`);
+      lines.push("");
+      lines.push("1) Cashflow Overview");
+      lines.push(`We processed ${m.totalTx} transaction(s) in this window.`);
+      lines.push(`• Total inflows: ${m.totalIn.toFixed(2)}`);
+      lines.push(`• Total outflows: ${m.totalOut.toFixed(2)}`);
+      lines.push(`• Net position: ${m.net.toFixed(2)}`);
+      lines.push("This simple trio already tells us whether the current cycle is accumulation, deployment or correction.");
+      lines.push("");
+      lines.push("2) Tax & Compliance Footprint");
+
+      const countryKeys = Object.keys(m.perCountry || {});
+      if (countryKeys.length) {
+        countryKeys.sort().forEach(ct => {
+          const c = m.perCountry[ct];
+          lines.push(`• ${ct}: VAT = ${c.vat.toFixed(2)}, WHT = ${c.wht.toFixed(2)}, tx = ${c.count}, net = ${(c.inflows - c.outflows).toFixed(2)}.`);
+        });
+      } else {
+        lines.push("• No explicit tax-country tagging in this dataset – a reminder to tighten basic data capture.");
+      }
+
+      lines.push("");
+      lines.push("This footprint highlights where regulators may come knocking and where careful documentation becomes non-negotiable.");
+      lines.push("");
+      lines.push("3) FX & Cross-Border Dynamics");
+
+      const fxKeys = Object.keys(m.perFx || {});
+      if (hasFx && fxKeys.length) {
+        fxKeys.sort().forEach(cur => {
+          const f = m.perFx[cur];
+          lines.push(`• ${cur}: FX amount = ${f.fx_amount.toFixed(2)}, base volume (recorded) = ${f.recorded_base.toFixed(2)}`);
+        });
+      } else {
+        lines.push("• No FX-tagged transactions in this set. Flows are primarily domestic, which reduces FX complexity but may also signal untapped cross-border potential.");
+      }
+
+      lines.push("");
+      lines.push("4) Digital Rails – Chains & Channels");
+
+      const chainKeys = Object.keys(m.perChain || {});
+      if (hasOnchain && chainKeys.length) {
+        chainKeys.sort().forEach(ch => {
+          const c = m.perChain[ch];
+          lines.push(`• Chain ${ch}: tx = ${c.count}, volume = ${c.volume.toFixed(2)}`);
+        });
+      } else {
+        lines.push("• Activity is still predominantly OFFCHAIN. Traditional rails remain the default mode of settlement in this snapshot.");
+      }
+
+      lines.push("");
+      const chanKeys = Object.keys(m.perChannel || {});
+      if (chanKeys.length) {
+        lines.push("On the channel side, we see concentration and fragmentation across bank transfers, POS, cards, exchanges and wallets. Each major channel represents a partner risk, a fee layer and a data signal for customer behaviour.");
+      } else {
+        lines.push("Channels appear as a flat line here – another sign that more granular tagging could unlock better insight.");
+      }
+
+      lines.push("");
+      lines.push("5) Strategic Reflection");
+      lines.push("When you read the ledger as a story, you begin to see:");
+      lines.push("• Which countries carry your tax and regulatory weight");
+      lines.push("• Which currencies carry your FX risk");
+      lines.push("• Which chains and channels carry your settlement reality");
+      lines.push("• How today’s flows are shaping tomorrow’s strategy");
+      lines.push("");
+      lines.push("You can enrich this analysis with your own notes: campaigns, seasonality, economic news, regulatory changes and internal decisions.");
+      lines.push("");
+      lines.push("Close with a principle or scripture such as:");
+      lines.push("“Teach us to number our days, that we may apply our hearts unto wisdom.” – Psalm 90:12");
+      lines.push("so that finance becomes not just about numbers, but about wise stewardship.");
+      lines.push("");
+      lines.push("— Peter Bamidele (@PeterAnalytica)");
+      lines.push("Founder & Lead Strategist, Ace Consulting & Analytics (ACA) & Ace Insights");
+      lines.push("Strategizing the Ledger of the New Economy — Bridging Traditional Accounting with On-Chain Finance and Beyond.");
+
+      return lines.join("\n");
+    }
+
+    function buildSignatureDraft(data, meta) {
+      const m = meta || {};
+      const bp = m.bp || {};
+      const businessName = bp.business_name || "your business";
+
+      return [
+`Signature block (you can reuse & tweak):`,
+``,
+`— Peter Bamidele (@PeterAnalytica)`,
+`Founder, Ace Consulting & Analytics (ACA) & Ace Insights`,
+`Web3 Accountant & Digital Economy Strategist & Narrator of Digital Signals`,
+`Strategizing the Ledger of the New Economy — Bridging Traditional Accounting with On-Chain Finance and Beyond.`,
+``,
+`Suggested hashtags (adapt per post):`,
+`#AceInsights`,
+`#AcePiSuite`,
+`#DigitalEconomy`,
+`#Web3Accounting`,
+`#OnChainFinance`,
+`#TaxAndFX`,
+`#Nigeria`,
+`#SMEs`,
+`#FinancialStewardship`,
+``,
+`You can also add a custom line like:`,
+`“Today’s signal: ${businessName} is not just counting transactions – it is learning from them.”`
+      ].join("\n");
     }
   </script>
 </body>
